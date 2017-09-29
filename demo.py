@@ -42,7 +42,6 @@ def get_image_features(image_path):
     im[:,:,2] -= r
     im = im.transpose((2,0,1)) # change from BGR to RGB
     im = np.expand_dims(im, axis=0) # change to 1 3 224 224
-    print im.shape
     return im
 def prep_data_X():
     nb_train = 17
@@ -66,14 +65,17 @@ def train_model():
     Y_train = prep_data_Y()
     print Y_train
     X_train = prep_data_X()
-    model.fit(X_train,Y_train,epochs = 20)
-    model.save('weight.h5')
+    model.fit(X_train,Y_train,epochs = 3)
+    model.save_weights('weight.h5')
     return model
-#def load_model():
-    #model = VGG_16(weight_path)
+def load_model():
+    weight_path = 'weight.h5'
+    model = VGG_16(weight_path)
     #out = model.predict(im)
     #print np.argmax(out)
-#   return 0;
-
+    return model
 if __name__ == "__main__":
-    train_model()
+    model = train_model()
+    #model = load_model()
+    Y_predict=model.predict(get_image_features('test.jpg'))
+    print Y_predict
