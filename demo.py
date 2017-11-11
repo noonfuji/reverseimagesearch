@@ -13,9 +13,9 @@ from model.vgg_model import *
 from keras.utils import np_utils
 K.set_image_data_format('channels_last')
 from keras import applications
-from keras.preprocessing.image import ImageDataGenerator
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
 from keras import optimizers
-from keras.models import Sequential, Model 
+from keras.models import Sequential, Model, load_model
 from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D
 from keras import backend as k 
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard, EarlyStopping
@@ -24,78 +24,17 @@ from theano.ifelse import IfElse, ifelse
 
 def get_image_features(image_path):
     # normalize images
-    im = cv2.resize(cv2.imread(image_path), (256, 256)).astype(np.float32)
-    """[b,g,r] = get_mean()
-    im[:,:,0] -= b
-    im[:,:,1] -= g
-    im[:,:,2] -= r"""
-    mean_pixel = [103.939, 116.779, 123.68]
-
-    for c in range(3):
-        im[c, :, :] = im[c, :, :] - mean_pixel[c]
-
-    im = im.transpose((2,0,1)) # change from BGR to RGB
-    im = np.expand_dims(im, axis=0) # change to 1 3 224 224
-    return im
-def prep_data_X():
-    nb_train = 20
-    X_train = np.zeros((nb_train,256,256,3))
-    path = "./dataset/"
-    i=0
-    for image_file_name in os.listdir("./dataset"):
-        if image_file_name.endswith(".jpg") or image_file_name.endswith(".jpeg"):
-            image_file_name = path+image_file_name
-            im = get_image_features(image_file_name)
-            X_train[i,:,:,:]=im
-            i=i+1
-    return X_train
-def prep_data_Y():
-    #to be modified
-    Y = [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1]
-    return np_utils.to_categorical(Y)
-
+    img = cv2.resize(cv2.imread(image_path), (256, 256)).astype(np.float32)
+    x = img_to_array(img)  # this is a Numpy array with shape (256, 256,3)
+    x = x.reshape((1,) + x.shape)  # this is a Numpy array with shape (1,256, 256,3)
+    return x
 def train_model():
-    model = vgg16_model()
-    Y_train = prep_data_Y()
-    X_train = prep_data_X()
-    print X_train.shape
-    print "\n"
-    print Y_train.shape
-    nb_epoch = 10
-    batch_size = 5
-    model.fit(X_train, Y_train,
-              batch_size=batch_size,
-              nb_epoch=nb_epoch,
-              shuffle=True
-              )
-    print "Training complete \n"
-    model.save_weights('weight.h5')
-    return model
 
-def load_model():
-    weight_path = 'weight.h5'
-    model = vgg16_model(weight_path)
-    return model
-'''if __name__ == "__main__":
-    model = train_model()
-    #model = load_model()
-    
-    Y_predict=model.predict(get_image_features('test1.jpg'),batch_size=5)
-    print Y_predict
-    #img = cv2.imread('test1.jpg')
-    #print Y_predict
-    #if np.argmax(Y_predict) == 0:
-    #    cv2.imshow('Dog',img)
-    #else:
-    #    cv2.imshow('Cat',img)
-    #cv2.waitKey(0)
-'''
-
-if __name__ == "__main__":
+    # Train model and save
     img_width, img_height = 256, 256
     train_data_dir = "data/train"
     validation_data_dir = "data/val"
-    nb_train_samples = 20
+    nb_train_samples = 50
     nb_validation_samples = 5
     batch_size = 3
     epochs = 20
@@ -114,7 +53,7 @@ if __name__ == "__main__":
     x = Dense(1024, activation="relu")(x)
     x = Dropout(0.5)(x)
     x = Dense(1024, activation="relu")(x)
-    predictions = Dense(2, activation="softmax")(x) # currently have two classes
+    predictions = Dense(3, activation="softmax")(x) # set to num of classes we have
 
     # creating the final model 
     model_final = Model(input = model.input, output = predictions)
@@ -152,17 +91,13 @@ if __name__ == "__main__":
     target_size = (img_height, img_width),
     class_mode = "categorical")
     
+    print(validation_generator.class_indices) ## to show indice for each class
 
     # Save the model according to the conditions  
-    checkpoint = ModelCheckpoint("vgg16_1.h5", monitor='val_acc', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
+    checkpoint = ModelCheckpoint("final_model.h5", monitor='val_acc', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
     early = EarlyStopping(monitor='val_acc', min_delta=0, patience=10, verbose=1, mode='auto')
 
-    """Y_train = prep_data_Y()
-    X_train = prep_data_X()
-    print X_train.shape"""
-
     # Train the model 
-
 
     model_final.fit_generator(
     train_generator,
@@ -171,3 +106,27 @@ if __name__ == "__main__":
     validation_data = validation_generator,
     nb_val_samples = nb_validation_samples,
     callbacks = [checkpoint, early])
+
+def load_final_model():
+    # Load our model from .h5 file
+    model = load_model('final_model.h5')
+    return model
+
+
+if __name__ == "__main__":
+    train = True # set to true if you want to train
+    if train:
+        train_model()
+    model = load_final_model() # need to have .h5 file first
+    img = cv2.imread('test2.jpg')
+    X = get_image_features('test2.jpg')
+    Y = model.predict(X,batch_size=5)
+    print Y
+    #see line 94
+    if np.argmax(Y) == 0:
+        cv2.imshow('Angkor',img)
+    elif np.argmax(Y) == 1:
+        cv2.imshow('Chiangmai',img)
+    else:
+        cv2.imshow('Eiffel',img)
+    cv2.waitKey(0)
