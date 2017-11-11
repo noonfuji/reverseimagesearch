@@ -1,9 +1,13 @@
 # reverseimagesearch
 
 Requirement:
+
 *opencv
+
 *Keras
-*Theano
+
+*Theano 1.0.0
+
 
 To run: 
 * python demo.py
